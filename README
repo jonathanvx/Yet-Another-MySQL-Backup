@@ -28,6 +28,7 @@ Assumptions:
 A lot..
 You have the percona repository installed with xtrabackup and percona-toolkit
 You have MyDumper
+You have sendmail and mutt email applications installed on your server.
 You understand BASH enough to go over the code and make the changes you need for it to work on your own server (it's not that hard.. I'm not that great anyway).
 
 
