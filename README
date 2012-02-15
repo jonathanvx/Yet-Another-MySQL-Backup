@@ -8,11 +8,13 @@ Yet Another MySQL Backup
 What this script does?
 =====================
 
-Takes a full physical backup using xtrabackup/innobackupex
+Takes a full physical backup (actual files) using xtrabackup/innobackupex
 Sets it up to be quickly restored from
-Deletes backups older then 2 days old
+Deletes physical backups older then 2 days old
 
-Takes a full logical backup using MyDumper
+Takes a full logical backup (SQL statements) using MyDumper
+with seperate compressed files (MyLoader understands these compressedfiles)
+Deletes logical backups older then 7 days
 
 Emails if there is an error with either backup methods
 
