@@ -1,0 +1,31 @@
+Yet Another MySQL Backup
+=======================
+
+*under construction*
+
+(I am fully aware that this code is in a crappy stage and that it is public, but I am counting that no one will see it anyway)
+
+What this script does?
+=====================
+
+Takes a full physical backup using xtrabackup/innobackupex
+Sets it up to be quickly restored from
+Deletes backups older then 2 days old
+
+Takes a full logical backup using MyDumper
+
+Emails if there is an error with either backup methods
+
+Emails a report at the end of backup with metadata about the backups
+as well as slave information (assumes you are backing up from a slave).
+
+Lightly sprinkled error handling.
+ 
+Assumptions:
+===========
+A lot..
+You have the percona repository installed with xtrabackup and percona-toolkit
+You have MyDumper
+You understand BASH enough to go over the code and make the changes you need for it to work on your own server (it's not that hard.. I'm not that great anyway).
+
+
