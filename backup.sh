@@ -35,7 +35,7 @@ else
         	du -h 2012-02-14_09_10/ | tail -1 >> $LOGGER
 
 		if [ "$1" == "full" ]; then
-       			 pkill -f 'tail -f $LOGGER'
+       			 pkill -f 'tail -f '$LOGGER 
 		fi
        		
 		mv $LOGGER $BACKUPDIRPHYSICAL
@@ -43,8 +43,8 @@ else
 	
 	echo "Removing old physical backups"
 	#removing old backups - 2 days old
-	find $BACKUPDIRPHYSICAL -type d -ctime +1 -exec rm -rf '{}' \; >/dev/null
-	find $BACKUPDIRPHYSICAL -empty -type d -ctime +1 -exec rmdir '{}' \; >/dev/null
+	find $BASEDIRPHYSICAL -type d -ctime +1 -exec rm -rf '{}' \; >/dev/null
+	find $BASEDIRPHYSICAL -empty -type d -ctime +1 -exec rmdir '{}' \; >/dev/null
 
 fi
 
@@ -67,7 +67,7 @@ if [[ $(egrep --quiet 'Error|CRITICAL' $LOGGER) ]]; then
         rm -f $LOGGER
 else
         if [ "$1" == "full" ]; then
-	        pkill -f 'tail -f $LOGGER'
+	        pkill -f 'tail -f '$LOGGER
         fi
 	mv $LOGGER $BACKUPDIR2
 
