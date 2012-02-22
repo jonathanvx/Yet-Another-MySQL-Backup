@@ -2,32 +2,35 @@
 
 DATE1=`date +%Y-%m-%d_%H_%M`
 STARTTIME1=`date +%s`
-BASEDIR1=/backups/db/physical/
-BACKUPDIR1=/backups/db/physical/$DATE1
+BASEDIRPHYSICAL=/backups/db/physical/
+BACKUPDIRPHYSICAL=/backups/db/physical/$DATE1
 LOGGER=/backups/db/physical/dbbackup.log
 MAIL=mail@jonathanlevin.co.uk
+HOST=127.0.0.1
+USER=root
+PASSWORD=OMG_ponies
 
 touch $LOGGER
 if [ "$1" == "full" ]; then
 	tail -f $LOGGER &
 fi
 
-/usr/bin/innobackupex --slave-info --no-timestamp $BACKUPDIR1 2>> $LOGGER
+/usr/bin/innobackupex --host $HOST --user $USER --password $PASSWORD --slave-info --no-timestamp $BACKUPDIRPHYSICAL 2>> $LOGGER
 
-if [[ $(grep --quiet 'Error' $LOGGER) ]]; then
-        grep --quiet 'Error' $LOGGER | mutt -a $LOGGER -s "TestDB XtraBackup FAILED" $MAIL
-	rm -rf $BACKUPDIR1
+if [[ $(egrep --quiet 'Error|FATAL' $LOGGER) ]]; then
+	egrep --quiet 'Error|FATAL' $LOGGER | mutt -a $LOGGER -s "TestDB XtraBackup FAILED" $MAIL
+	rm -rf $BACKUPDIRPHYSICAL
 	rm -f $LOGGER
 else
 
-	if [ -d $BACKUPDIR1 ]; then
-       		/usr/bin/innobackupex --apply-log $BACKUPDIR1 2>> $LOGGER
+	if [ -d $BACKUPDIRPHYSICAL ]; then
+       		/usr/bin/innobackupex --apply-log $BACKUPDIRPHYSICAL 2>> $LOGGER
     		if [ $? -gt 0 ]; then
           	      echo "Error: Problem detected with xtrabackup applying log." >> $LOGGER
        		fi
 
-        	chown mysql:mysql -R $BACKUPDIR1
-        	cp /etc/my.cnf $BACKUPDIR1/my.cnf.bak
+        	chown mysql:mysql -R $BACKUPDIRPHYSICAL
+        	cp /etc/my.cnf $BACKUPDIRPHYSICAL/my.cnf.bak
         	echo "Directory and Storage size:" >> $LOGGER
         	du -h 2012-02-14_09_10/ | tail -1 >> $LOGGER
 
@@ -35,13 +38,13 @@ else
        			 pkill -f 'tail -f $LOGGER'
 		fi
        		
-		mv $LOGGER $BACKUPDIR1
+		mv $LOGGER $BACKUPDIRPHYSICAL
 	fi
 	
 	echo "Removing old physical backups"
 	#removing old backups - 2 days old
-	find $BASEDIR1 -type d -ctime +1 -exec rm -rf '{}' \; >/dev/null
-	find $BASEDIR1 -empty -type d -ctime +1 -exec rmdir '{}' \; >/dev/null
+	find $BACKUPDIRPHYSICAL -type d -ctime +1 -exec rm -rf '{}' \; >/dev/null
+	find $BACKUPDIRPHYSICAL -empty -type d -ctime +1 -exec rmdir '{}' \; >/dev/null
 
 fi
 
@@ -57,9 +60,9 @@ if [ "$1" == "full" ]; then
         tail -f $LOGGER &
 fi
 
-mydumper -o $BACKUPDIR2 -r 500000 -e -c -l 2000 -v 3 2>> $LOGGER
-if [[ $(grep --quiet 'Error' $LOGGER) ]]; then
-        grep --quiet 'Error' $LOGGER | mutt -a $LOGGER -s "TestDB MyDumper FAILED" $MAIL
+mydumper -o $BACKUPDIR2 -r 500000 -e -c -l 2000 -v 3 -h 127.0.0.1 -h $HOST -u $USER -p $PASSWORD 2>> $LOGGER
+if [[ $(egrep --quiet 'Error|CRITICAL' $LOGGER) ]]; then
+        grep --quiet 'Error|CRITICAL' $LOGGER | mutt -a $LOGGER -s "TestDB MyDumper FAILED" $MAIL
 	rmdir --ignore-fail-on-non-empty $BACKUPDIR2
         rm -f $LOGGER
 else
@@ -77,10 +80,10 @@ fi
 
 LOGGER=/tmp/backupreport.txt
 
-if [ -d $BACKUPDIR1 ]; then
-        echo "XtraBackup Saved to: " $BACKUPDIR1 > $LOGGER
-        du -h $BACKUPDIR1 | tail -1 | awk '{ print "Backup storage size: ",$1}' >> $LOGGER
-        df -h $BACKUPDIR1 | tail -1 | awk '{ print "Available space on partition: " $4, ", Available Percent: "$5}' >> $LOGGER
+if [ -d $BACKUPDIRPHYSICAL ]; then
+        echo "XtraBackup Saved to: " $BACKUPDIRPHYSICAL > $LOGGER
+        du -h $BACKUPDIRPHYSICAL | tail -1 | awk '{ print "Backup storage size: ",$1}' >> $LOGGER
+        df -h $BACKUPDIRPHYSICAL | tail -1 | awk '{ print "Available space on partition: " $4, ", Available Percent: "$5}' >> $LOGGER
         echo `expr $STARTTIME2 - $STARTTIME1` | awk '{print "Time taken:", strftime("%H:%M:%S", $1+21600)}' >> $LOGGER
         echo >> $LOGGER
 fi
@@ -93,8 +96,8 @@ if [ -d $BACKUPDIR2 ]; then
         echo >> $LOGGER
 fi
 
-if [ -d $BACKUPDIR1 ] || [ -d $BACKUPDIR2 ]; then
-	pt-slave-find --host localhost | grep status >> $LOGGER
+if [ -d $BACKUPDIRPHYSICAL ] || [ -d $BACKUPDIR2 ]; then
+	pt-slave-find --host $HOST --user $USER --password $PASSWORD | grep status >> $LOGGER
 	echo >> $LOGGER
 	ENDTIME=`date +%s`
         echo `expr $ENDTIME - $STARTTIME1` | awk '{print "Total Time taken:", strftime("%H:%M:%S", $1+21600)}' >> $LOGGER
