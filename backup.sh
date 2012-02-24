@@ -1,5 +1,7 @@
 #!/bin/bash
 
+##### Configuration #####
+
 DATE1=`date +%Y-%m-%d_%H_%M`
 STARTTIME1=`date +%s`
 BASEDIRPHYSICAL=/backups/db/physical/
@@ -8,7 +10,10 @@ LOGGER=/backups/db/physical/dbbackup.log
 MAIL=mail@jonathanlevin.co.uk
 HOST=127.0.0.1
 USER=root
-PASSWORD=OMG_ponies
+PASSWORD=OMG_PONIES
+
+MYDUMPER=Yes
+MYSQLERRORLOG=/var/lib/mysql/error.log
 
 touch $LOGGER
 if [ "$1" == "full" ]; then
@@ -35,7 +40,7 @@ else
         	du -h 2012-02-14_09_10/ | tail -1 >> $LOGGER
 
 		if [ "$1" == "full" ]; then
-       			 pkill -f 'tail -f '$LOGGER 
+       			 ps -ef | grep tail | grep dbbackup.log | awk '{print $2}' | xargs kill -9 
 		fi
        		
 		mv $LOGGER $BACKUPDIRPHYSICAL
@@ -43,10 +48,12 @@ else
 	
 	echo "Removing old physical backups"
 	#removing old backups - 2 days old
-	find $BASEDIRPHYSICAL -type d -ctime +1 -exec rm -rf '{}' \; >/dev/null
-	find $BASEDIRPHYSICAL -empty -type d -ctime +1 -exec rmdir '{}' \; >/dev/null
+	find $BASEDIRPHYSICAL -type d -ctime +1 -exec rm -rf '{}' \; 2>/dev/null
+	find $BASEDIRPHYSICAL -empty -type d -ctime +1 -exec rmdir '{}' \; 2>/dev/null
 
 fi
+
+if [ $MYDUMPER == "Yes" ]; then
 
 
 DATE2=`date +%Y-%m-%d_%H_%M`
@@ -67,7 +74,7 @@ if [[ $(egrep --quiet 'Error|CRITICAL' $LOGGER) ]]; then
         rm -f $LOGGER
 else
         if [ "$1" == "full" ]; then
-	        pkill -f 'tail -f '$LOGGER
+	        ps -ef | grep tail | grep dbdump.log | awk '{print $2}' | xargs kill -9
         fi
 	mv $LOGGER $BACKUPDIR2
 
@@ -77,6 +84,7 @@ else
 	find /backups/db/logical/ -empty -type d -ctime +6 -exec rmdir '{}' \; >/dev/null
 fi
 
+fi
 
 LOGGER=/tmp/backupreport.txt
 
@@ -87,7 +95,7 @@ if [ -d $BACKUPDIRPHYSICAL ]; then
         echo `expr $STARTTIME2 - $STARTTIME1` | awk '{print "Time taken:", strftime("%H:%M:%S", $1+21600)}' >> $LOGGER
         echo >> $LOGGER
 fi
-if [ -d $BACKUPDIR2 ]; then
+if [ -d $BACKUPDIR2 ] && [ $MYDUMPER == "Yes" ]; then
         echo "MyDumper Saved to: " $BACKUPDIR2 >> $LOGGER
         du -h $BACKUPDIR2 | tail -1 | awk '{ print "Backup storage size: ",$1}' >> $LOGGER
         df -h $BACKUPDIR2 | tail -1 | awk '{ print "Available space on partition: " $4, ", Available Percent: "$5}' >> $LOGGER
@@ -96,11 +104,17 @@ if [ -d $BACKUPDIR2 ]; then
         echo >> $LOGGER
 fi
 
-if [ -d $BACKUPDIRPHYSICAL ] || [ -d $BACKUPDIR2 ]; then
+if [ -d $BACKUPDIRPHYSICAL ] || [ -d $BACKUPDIR2 ] && [ $MYDUMPER == "Yes" ]; then
 	pt-slave-find --host $HOST --user $USER --password $PASSWORD | grep status >> $LOGGER
 	echo >> $LOGGER
 	ENDTIME=`date +%s`
         echo `expr $ENDTIME - $STARTTIME1` | awk '{print "Total Time taken:", strftime("%H:%M:%S", $1+21600)}' >> $LOGGER
+	echo >> $LOGGER
+	if [ -f $MYSQLERRORLOG ]; then	
+		cat $MYSQLERRORLOG >> $LOGGER
+		cp -f $MYSQLERRORLOG $MYSQLERRORLOG.old
+		echo > $MYSQLERRORLOG	
+	fi
 	cat $LOGGER | mail -s"Backup Report" $MAIL 
 fi
 rm -f $LOGGER
